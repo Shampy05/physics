@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js'
 import GUI from 'lil-gui'
-import CANNON, { Vec3 } from 'cannon'
+import * as CANNON from 'cannon-es'
 
 /**
  * Base
@@ -11,6 +11,20 @@ const canvas = document.querySelector('canvas.webgl')
 
 // Scene
 const scene = new THREE.Scene()
+
+// sounds
+const hitSound = new Audio('/sounds/hit.mp3')
+
+const playHitSounds = (collision) => 
+{
+    const impactStrength = collision.contact.getImpactVelocityAlongNormal()
+    if (impactStrength > 1.5)
+    {
+        hitSound.volume = Math.random()
+        hitSound.currentTime = 0
+        hitSound.play()
+    }
+}
 
 /**
  * Textures
@@ -64,6 +78,7 @@ scene.add(directionalLight)
 // physics
 const world = new CANNON.World()
 world.broadphase = new CANNON.SAPBroadphase(world)
+world.allowSleep = true
 world.gravity.set(0, - 9.82, 0)
 
 const defaultMaterial = new CANNON.Material('default')
@@ -139,6 +154,7 @@ const createSphere = (radius, position) => {
     objectsToUpdate.push({ mesh, body })
 
     body.position.copy(position)
+    body.addEventListener('collide', playHitSounds)
     world.addBody(body)
 }
 
@@ -167,6 +183,7 @@ const createBox = (width, height, depth, position) => {
         material: defaultMaterial
     })
     body.position.copy(position)
+    body.addEventListener('collide', playHitSounds)
     world.addBody(body)
 
     objectsToUpdate.push({ mesh, body })
@@ -188,6 +205,20 @@ debugObject.createBox = () =>
     )
 }
 gui.add(debugObject, 'createBox')
+
+// reset 
+ debugObject.reset = () => 
+ {
+    for(const object of objectsToUpdate) {
+        object.body.removeEventListener('collide', playHitSounds)
+        world.removeBody(object.body)
+
+        scene.remove(object.mesh)
+    }
+
+    objectsToUpdate.splice(0, objectsToUpdate.length)
+ }
+ gui.add(debugObject, 'reset')
 
 window.addEventListener('resize', () =>
 {
